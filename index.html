@@ -1,0 +1,1569 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>COSMOS - Project Exodus</title>
+  
+  <!-- Orbitron & Rajdhani fonts for high-tech sci-fi look -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&family=Space+Mono&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Rajdhani', 'sans-serif'],
+            display: ['Orbitron', 'sans-serif'],
+            mono: ['Space Mono', 'monospace'],
+          },
+          colors: {
+            cosmic: {
+              black: '#030712',
+              blue: '#0d1527',
+              accent: '#38bdf8',
+              purple: '#8b5cf6',
+              neon: '#06b6d4',
+              amber: '#f59e0b',
+            }
+          },
+          animation: {
+            'spin-slow': 'spin 20s linear infinite',
+            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'ping-slow': 'ping 3s cubic-bezier(0, 0, 0.2, 1) infinite',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar to keep layout clean */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(3, 7, 18, 0.95);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #06b6d4;
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #38bdf8;
+    }
+
+    /* Selection Colors */
+    ::selection {
+      background: rgba(6, 182, 212, 0.3);
+      color: #ffffff;
+    }
+
+    /* Scanline overlay for retro CRT/Terminal feel */
+    .scanlines {
+      background: linear-gradient(
+        rgba(18, 16, 16, 0) 50%, 
+        rgba(0, 0, 0, 0.25) 50%
+      );
+      background-size: 100% 4px;
+      z-index: 40;
+    }
+
+    /* Ambient glow effects */
+    .glow-cyan {
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+    }
+    .text-glow {
+      text-shadow: 0 0 8px rgba(6, 182, 212, 0.5);
+    }
+    .border-glow {
+      border-color: rgba(6, 182, 212, 0.4);
+    }
+
+    /* Hide standard cursor inside interactive zones to show cosmic crosshair */
+    .custom-cursor-area {
+      cursor: none;
+    }
+
+    /* Glassmorphism custom styling */
+    .glass-panel {
+      background: rgba(13, 21, 39, 0.4);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+  </style>
+
+  <!-- Libraries: Three.js, GSAP + ScrollTrigger -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js"></script>
+</head>
+
+<body class="bg-cosmic-black text-white font-sans overflow-x-hidden antialiased selection:bg-cosmic-neon/30">
+
+  <!-- Reticle Crosshair tracker -->
+  <div id="crosshair" class="fixed top-0 left-0 w-8 h-8 border border-cosmic-neon/40 rounded-full pointer-events-none z-50 mix-blend-difference transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center opacity-0 transition-opacity duration-300">
+    <div class="w-1 h-1 bg-cosmic-neon rounded-full"></div>
+    <div class="absolute w-12 h-[1px] bg-cosmic-neon/20"></div>
+    <div class="absolute h-12 w-[1px] bg-cosmic-neon/20"></div>
+  </div>
+
+  <!-- Ambient CRT/Terminal Scanlines -->
+  <div class="scanlines fixed inset-0 pointer-events-none"></div>
+
+  <!-- Loading Screen overlay -->
+  <div id="loading-screen" class="fixed inset-0 z-50 bg-cosmic-black flex flex-col items-center justify-center transition-all duration-1000">
+    <div class="relative flex flex-col items-center">
+      <!-- Animated Sci-fi Ring -->
+      <div class="w-32 h-32 rounded-full border-4 border-t-cosmic-neon border-r-transparent border-b-cosmic-purple border-l-transparent animate-spin-slow flex items-center justify-center mb-8">
+        <div class="w-24 h-24 rounded-full border border-dashed border-cosmic-neon/40 animate-pulse-slow"></div>
+      </div>
+      <h1 class="font-display text-4xl font-extrabold tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cosmic-neon via-cosmic-accent to-cosmic-purple text-glow">
+        COSMOS
+      </h1>
+      <p class="font-mono text-xs tracking-[0.3em] mt-2 text-cosmic-neon/80 uppercase">Project Exodus Interface</p>
+      
+      <!-- Load progress bar -->
+      <div class="w-64 h-1 bg-slate-950 rounded-full mt-8 overflow-hidden border border-white/5">
+        <div id="load-progress" class="h-full bg-gradient-to-r from-cosmic-neon to-cosmic-purple transition-all duration-300" style="width: 0%"></div>
+      </div>
+      <p id="load-status" class="font-mono text-[10px] mt-2 text-slate-400">CONNECTING TO QUANTUM RELAY...</p>
+    </div>
+  </div>
+
+  <!-- Persistent Telemetry Header (HUD) -->
+  <header class="fixed top-0 left-0 w-full z-40 p-4 md:p-6 flex items-center justify-between pointer-events-none">
+    <div class="pointer-events-auto flex items-center space-x-4">
+      <div class="h-10 w-10 flex items-center justify-center rounded border border-cosmic-neon/30 bg-cosmic-blue/60 backdrop-blur-md">
+        <span class="font-display font-black text-xl text-cosmic-neon text-glow">Ω</span>
+      </div>
+      <div>
+        <h2 class="font-display font-bold text-lg tracking-wider text-glow">EXODUS-IV</h2>
+        <p class="font-mono text-[10px] text-cosmic-neon/60 tracking-widest">DEEP SPACE TELEMETRY LINK ACTIVE</p>
+      </div>
+    </div>
+
+    <!-- Quick controls / Sound engine state / Metrics -->
+    <div class="pointer-events-auto flex items-center space-x-3 md:space-x-6">
+      <div class="hidden lg:flex flex-col items-end font-mono text-[10px] text-slate-400">
+        <div>ORBITAL DRIFT: <span id="telemetry-drift" class="text-cosmic-neon">0.032°/s</span></div>
+        <div>QUANTUM COHERENCE: <span id="telemetry-coherence" class="text-cosmic-neon">99.82%</span></div>
+      </div>
+      
+      <!-- Audio Synth Control Toggle -->
+      <button id="synth-toggle" class="flex items-center space-x-2 px-3 py-1.5 rounded border border-white/10 bg-slate-900/50 hover:bg-cosmic-neon/20 hover:border-cosmic-neon/50 transition-all duration-300 text-xs font-mono group">
+        <div class="w-2 h-2 rounded-full bg-red-500 group-hover:animate-ping" id="audio-indicator"></div>
+        <span id="audio-text">INIT SOUND ENGINE</span>
+      </button>
+
+      <button id="dashboard-toggle" class="px-3 py-1.5 rounded border border-white/10 bg-slate-900/50 hover:bg-cosmic-neon/20 text-xs font-mono transition-all duration-300">
+        DASHBOARD
+      </button>
+    </div>
+  </header>
+
+  <!-- Side Control Dashboard Overlay (Collapsible) -->
+  <aside id="system-dashboard" class="fixed right-0 top-0 h-full w-80 z-30 glass-panel translate-x-full transition-transform duration-500 ease-out p-6 pt-24 flex flex-col justify-between border-l border-white/10 pointer-events-auto">
+    <div class="space-y-6">
+      <div class="border-b border-white/10 pb-4">
+        <h3 class="font-display text-lg font-bold text-cosmic-neon tracking-wide">SYSTEM DIAGNOSTICS</h3>
+        <p class="font-mono text-[10px] text-slate-400">ENGINEERING CORE v3.5</p>
+      </div>
+
+      <!-- Live render configuration -->
+      <div class="space-y-4">
+        <h4 class="font-mono text-xs uppercase tracking-wider text-cosmic-accent">Render Controls</h4>
+        <div class="space-y-3">
+          <div>
+            <label class="flex justify-between text-xs text-slate-300 mb-1 font-mono">
+              <span>STARLIGHT COLOR</span>
+              <span id="starlight-val" class="text-cosmic-neon">CYAN</span>
+            </label>
+            <input id="starlight-slider" type="range" min="1" max="3" value="1" class="w-full accent-cosmic-neon bg-slate-950">
+          </div>
+
+          <div>
+            <label class="flex justify-between text-xs text-slate-300 mb-1 font-mono">
+              <span>ROTATION VELOCITY</span>
+              <span id="speed-val" class="text-cosmic-neon">1x</span>
+            </label>
+            <input id="speed-slider" type="range" min="1" max="5" value="1" class="w-full accent-cosmic-neon bg-slate-950">
+          </div>
+
+          <div class="flex items-center justify-between py-2 border-t border-b border-white/5">
+            <span class="text-xs text-slate-300 font-mono">DIAGNOSTIC WIREFRAME</span>
+            <button id="wireframe-btn" class="w-10 h-5 bg-slate-950 rounded-full border border-white/10 relative p-0.5 transition-all duration-300">
+              <div class="w-3.5 h-3.5 bg-slate-500 rounded-full transition-transform duration-300" id="wireframe-knob"></div>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-time dynamic graph updates via JS -->
+      <div class="space-y-3">
+        <h4 class="font-mono text-xs uppercase tracking-wider text-cosmic-accent">Anomaly Vector Map</h4>
+        <div class="h-24 bg-slate-950/60 border border-white/5 rounded p-2 flex flex-col justify-between font-mono text-[10px]">
+          <div class="flex justify-between text-slate-500">
+            <span>GRID RANGE</span>
+            <span>[ 4.2 AU ]</span>
+          </div>
+          <!-- Canvas mini-visualizer -->
+          <canvas id="mini-graph" class="w-full h-12 bg-transparent opacity-85"></canvas>
+          <div class="flex justify-between text-slate-400">
+            <span>RADAR PULSE STATUS:</span>
+            <span class="text-emerald-400 animate-pulse">OPTIMAL</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="space-y-4">
+      <div class="p-3 bg-cosmic-neon/5 rounded border border-cosmic-neon/15">
+        <div class="flex items-center space-x-2 text-cosmic-neon mb-1">
+          <span class="w-2 h-2 rounded-full bg-cosmic-neon animate-pulse"></span>
+          <span class="font-display font-semibold text-xs tracking-wider">SECURE DATA PROTOCOL</span>
+        </div>
+        <p class="text-[10px] text-slate-300 font-mono leading-relaxed">Exodus project relies on procedural gravity anchor coordinates. Synchronizing with node-09-2025.</p>
+      </div>
+      <p class="font-mono text-[9px] text-slate-500 text-center">COSMOS HUB • RE-EDIT 2026</p>
+    </div>
+  </aside>
+
+  <!-- Interactive Coordinate Hotspots (3D Projectors on HTML) -->
+  <div id="hotspots-container" class="absolute inset-0 pointer-events-none z-20">
+    <!-- Dynamic projections inserted here via JavaScript -->
+  </div>
+
+  <!-- Sound/Alert notification toast -->
+  <div id="alarm-toast" class="fixed bottom-6 left-6 z-40 glass-panel p-4 rounded-lg flex items-center space-x-3 transform translate-y-24 opacity-0 transition-all duration-500 border border-red-500/30">
+    <div class="w-10 h-10 rounded-full bg-red-950/40 border border-red-500/50 flex items-center justify-center animate-pulse">
+      <span class="text-red-500 font-bold font-mono text-lg">!</span>
+    </div>
+    <div>
+      <h4 class="font-display font-extrabold text-sm text-red-500 tracking-wider">WARN: COSMIC DISTURBANCE</h4>
+      <p class="font-mono text-xs text-slate-300">ASTEROID FIELD THRESHOLD BREACHED</p>
+    </div>
+  </div>
+
+  <!-- Background Three.js canvas container -->
+  <div id="canvas-container" class="fixed inset-0 w-full h-full -z-10 bg-cosmic-black"></div>
+
+  <!-- Primary Scroll-bound content container -->
+  <main id="scroll-container" class="relative z-10 w-full pointer-events-none">
+    
+    <!-- Hero / Section 0: Home -->
+    <section id="sec-hero" class="relative min-h-screen w-full flex flex-col justify-between p-6 md:p-12 lg:p-20">
+      <div></div> <!-- Spacer -->
+      
+      <div class="max-w-4xl py-12 pointer-events-auto">
+        <div class="inline-flex items-center space-x-2 px-3 py-1 rounded bg-cosmic-neon/10 border border-cosmic-neon/30 mb-4 animate-pulse">
+          <span class="w-2 h-2 rounded-full bg-cosmic-neon"></span>
+          <span class="font-mono text-xs text-cosmic-neon tracking-widest uppercase">System Initialization Successful</span>
+        </div>
+        
+        <h1 class="font-display font-black text-5xl md:text-7xl lg:text-8xl tracking-tight leading-none mb-4 uppercase">
+          PROJECT<br>
+          <span class="text-transparent bg-clip-text bg-gradient-to-r from-cosmic-neon via-cosmic-accent to-cosmic-purple text-glow">EXODUS</span>
+        </h1>
+        
+        <p class="text-lg md:text-xl text-slate-300 max-w-xl font-medium tracking-wide mb-8 leading-relaxed">
+          Embark on an immersive journey across the galactic vector of <strong class="text-cosmic-neon">Aegis-IV</strong>. Control custom physics engines, explore system structures, and map cosmic gravity grids.
+        </p>
+
+        <!-- Interactive CTA buttons -->
+        <div class="flex flex-wrap gap-4">
+          <button id="btn-begin" class="px-6 py-3 rounded bg-cosmic-neon hover:bg-cosmic-accent text-cosmic-black font-display font-black tracking-widest text-sm transition-all duration-300 border-glow glow-cyan hover:-translate-y-0.5">
+            INITIATE SYSTEM LINK
+          </button>
+          <button id="btn-spec" class="px-6 py-3 rounded border border-white/15 bg-white/5 hover:bg-white/10 hover:border-cosmic-purple/50 text-white font-display font-semibold tracking-widest text-sm transition-all duration-300 hover:-translate-y-0.5">
+            CORE PROTOCOL SPECS
+          </button>
+        </div>
+      </div>
+
+      <!-- Scroll Indicator -->
+      <div class="flex items-center justify-between text-slate-400 font-mono text-[11px] tracking-widest">
+        <span>COORDINATES: SEC-001</span>
+        <div class="flex items-center space-x-2 animate-bounce">
+          <span>SCROLL TO DESCEND</span>
+          <span class="text-cosmic-neon font-bold">↓</span>
+        </div>
+        <span>SECTOR SPEED: 1.0 Mach</span>
+      </div>
+    </section>
+
+    <!-- Section 1: Planet Aegis-IV Exploration -->
+    <section class="min-h-screen w-full flex items-center justify-start p-6 md:p-12 lg:p-20 relative">
+      <div class="max-w-md pointer-events-auto glass-panel p-6 md:p-8 rounded-xl border border-white/10 relative overflow-hidden group">
+        <!-- Accent light lines -->
+        <div class="absolute top-0 left-0 w-2 h-full bg-cosmic-neon"></div>
+        
+        <span class="font-mono text-[11px] text-cosmic-neon tracking-widest uppercase mb-1 block">Exoplanet Diagnostic</span>
+        <h2 class="font-display font-extrabold text-3xl md:text-4xl tracking-wide mb-3 text-white uppercase">AEGIS-IV</h2>
+        
+        <p class="text-slate-300 text-sm md:text-base font-normal leading-relaxed mb-6 font-mono">
+          A neon-active deep biosphere rich in hyper-dense core alloys. Active gravitational anomalies have been detected at the northern cluster networks.
+        </p>
+
+        <!-- Telemetry bar graphs (scrolled values) -->
+        <div class="space-y-4 mb-6">
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs text-slate-400">
+              <span class="font-mono">ATMOSPHERIC PRESSURE</span>
+              <span class="text-cosmic-neon font-bold font-mono">1.24 atm</span>
+            </div>
+            <div class="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden">
+              <div class="h-full bg-gradient-to-r from-cosmic-neon to-cosmic-accent w-[85%] transition-all duration-1000"></div>
+            </div>
+          </div>
+
+          <div class="space-y-1">
+            <div class="flex justify-between text-xs text-slate-400">
+              <span class="font-mono">MAG-SHIELD DENSITY</span>
+              <span class="text-cosmic-purple font-bold font-mono">92.4 T</span>
+            </div>
+            <div class="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden">
+              <div class="h-full bg-gradient-to-r from-cosmic-purple to-pink-500 w-[92%] transition-all duration-1000"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-3 bg-white/5 rounded border border-white/5 text-[11px] font-mono text-slate-400">
+          * Dynamic hotspots are projected onto your viewport. <strong class="text-cosmic-neon">Click any orbit marker</strong> to automatically align orbital camera arrays.
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Asteroid Canyon Navigation -->
+    <section class="min-h-screen w-full flex items-center justify-end p-6 md:p-12 lg:p-20 relative">
+      <div class="max-w-md pointer-events-auto glass-panel p-6 md:p-8 rounded-xl border border-white/10 relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-2 h-full bg-red-500"></div>
+        
+        <div class="flex items-center justify-between mb-2">
+          <span class="font-mono text-[11px] text-red-400 tracking-widest uppercase">ASTEROID CORRIDOR</span>
+          <span class="animate-pulse px-1.5 py-0.5 rounded bg-red-950/50 border border-red-500/40 font-mono text-[9px] text-red-500">ALERT THREAT LEVEL</span>
+        </div>
+        
+        <h2 class="font-display font-extrabold text-3xl tracking-wide mb-3 text-white uppercase">SHIELD DEFLECTOR</h2>
+        
+        <p class="text-slate-300 text-sm font-mono leading-relaxed mb-6">
+          System is crossing the dense crystalline asteroid ring. High-speed kinetic impacts require electromagnetic pulse shield routing.
+        </p>
+
+        <!-- Interactive shield activator -->
+        <div class="space-y-4">
+          <button id="btn-pulse" class="w-full py-3 rounded bg-red-500 hover:bg-red-600 text-white font-display font-black tracking-widest text-xs transition-all duration-300 border border-red-400/30 flex items-center justify-center space-x-2">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
+            <span>ACTIVATE PULSE SHIELD</span>
+          </button>
+          
+          <div class="grid grid-cols-2 gap-2 text-[10px] font-mono">
+            <div class="p-2 bg-slate-950/60 rounded border border-white/5">
+              <span class="text-slate-500">SHIELD DURATION:</span>
+              <div class="text-slate-300 font-bold" id="pulse-duration-val">3.50 SEC</div>
+            </div>
+            <div class="p-2 bg-slate-950/60 rounded border border-white/5">
+              <span class="text-slate-500">PULSE CHARGE:</span>
+              <div class="text-emerald-400 font-bold animate-pulse">READY</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: Modular Space Station -->
+    <section class="min-h-screen w-full flex items-center justify-start p-6 md:p-12 lg:p-20 relative">
+      <div class="max-w-md pointer-events-auto glass-panel p-6 md:p-8 rounded-xl border border-white/10 relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-2 h-full bg-cosmic-purple"></div>
+        
+        <span class="font-mono text-[11px] text-cosmic-purple tracking-widest uppercase mb-1 block">MODULAR STRUCTURAL CORE</span>
+        <h2 class="font-display font-extrabold text-3xl tracking-wide mb-3 text-white uppercase">DOCKING HUB-09</h2>
+        
+        <p class="text-slate-300 text-sm leading-relaxed mb-6 font-mono">
+          An orbital modular station acting as a gravity node anchor. Coordinates all deep space mining shuttles.
+        </p>
+
+        <div class="space-y-3">
+          <button id="btn-station" class="w-full py-2.5 rounded border border-cosmic-purple/40 bg-cosmic-purple/10 hover:bg-cosmic-purple/20 text-cosmic-purple text-xs font-display font-black tracking-wider transition-all duration-300">
+            RE-ORIENT STATION SOLAR ARRAYS
+          </button>
+          
+          <div class="p-3 bg-slate-950/60 rounded border border-white/5 flex items-center justify-between font-mono text-xs text-slate-400">
+            <span>DOCK UNIT 01 STATUS:</span>
+            <span class="text-emerald-400">SECURELY ANCHORED</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 4: Singular Abyss -->
+    <section class="min-h-screen w-full flex items-center justify-end p-6 md:p-12 lg:p-20 relative">
+      <div class="max-w-md pointer-events-auto glass-panel p-6 md:p-8 rounded-xl border border-white/10 relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-2 h-full bg-cosmic-amber"></div>
+        
+        <span class="font-mono text-[11px] text-cosmic-amber tracking-widest uppercase mb-1 block">ANOMALOUS PHENOMENON</span>
+        <h2 class="font-display font-extrabold text-3xl tracking-wide mb-3 text-white uppercase">BLACK HOLE "X-1"</h2>
+        
+        <p class="text-slate-300 text-sm leading-relaxed mb-6 font-mono">
+          Light is bent across the event horizon. Gravity metrics indicate massive space-time curvature. Extreme caution advised beyond this vector.
+        </p>
+
+        <div class="p-3 bg-cosmic-amber/5 rounded border border-cosmic-amber/25 flex items-center space-x-3 text-cosmic-amber">
+          <span class="font-mono text-lg font-bold animate-ping">⚠</span>
+          <span class="font-mono text-[11px] leading-snug">GRAVITATIONAL DIALATION ENGAGED: Time is slowing down by 14.2x relative to system hub.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 5: Quantum Warp Launch -->
+    <section class="relative min-h-screen w-full flex flex-col justify-between p-6 md:p-12 lg:p-20">
+      <div></div> <!-- Spacer -->
+      
+      <div class="max-w-3xl py-12 pointer-events-auto text-center mx-auto">
+        <div class="w-16 h-16 rounded-full border border-cosmic-neon/30 bg-cosmic-neon/5 flex items-center justify-center mx-auto mb-6">
+          <span class="text-cosmic-neon font-display text-xl font-bold">Ξ</span>
+        </div>
+        
+        <h1 class="font-display font-black text-4xl md:text-6xl tracking-tight leading-none mb-6 uppercase">
+          READY FOR<br>
+          <span class="text-transparent bg-clip-text bg-gradient-to-r from-cosmic-neon via-cosmic-accent to-cosmic-purple text-glow">HYPERSPACE</span>
+        </h1>
+        
+        <p class="text-base md:text-lg text-slate-300 max-w-xl mx-auto font-mono tracking-wide mb-8 leading-relaxed">
+          Unlock maximum propulsion drive. Triggering hyperspace stretches spatial particles into glowing light vectors.
+        </p>
+
+        <button id="btn-warp" class="px-8 py-4 rounded bg-gradient-to-r from-cosmic-neon via-cosmic-accent to-cosmic-purple text-cosmic-black font-display font-black tracking-[0.2em] text-sm transition-all duration-300 transform hover:scale-105 active:scale-95 shadow-lg shadow-cosmic-neon/20">
+          ENGAGE WARP CONDUIT
+        </button>
+      </div>
+
+      <div class="flex flex-col md:flex-row items-center justify-between text-slate-500 font-mono text-[10px] tracking-widest pt-12 border-t border-white/5">
+        <span>COSMOS CORE SYSTEMS INTEGRATED</span>
+        <span>© 2026 PROJECT EXODUS LABS</span>
+        <span>NODE LATENCY: 0.12ms</span>
+      </div>
+    </section>
+  </main>
+
+  <!-- Sound alert and Web Audio engine -->
+  <script>
+    // Audio Context state
+    let audioCtx = null;
+    let mainGain = null;
+    let lfoOsc = null;
+    let delayNode = null;
+    let oscillatorChordNodes = [];
+    let noiseNode = null;
+
+    const synthToggle = document.getElementById('synth-toggle');
+    const audioIndicator = document.getElementById('audio-indicator');
+    const audioText = document.getElementById('audio-text');
+
+    // Trigger Synth initialization on user click
+    synthToggle.addEventListener('click', () => {
+      initSoundEngine();
+    });
+
+    function initSoundEngine() {
+      if (audioCtx) {
+        // Toggle play state
+        if (audioCtx.state === 'running') {
+          audioCtx.suspend();
+          audioIndicator.style.backgroundColor = '#ef4444'; // Red
+          audioText.textContent = 'SOUND ENGINE OFF';
+          playAlertSound(150, 0.1);
+        } else if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+          audioIndicator.style.backgroundColor = '#10b981'; // Green
+          audioText.textContent = 'SOUND ENGINE ACTIVE';
+          playAlertSound(600, 0.1);
+          playAlertSound(900, 0.1);
+        }
+        return;
+      }
+
+      try {
+        // Create audio context
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Master Volume
+        mainGain = audioCtx.createGain();
+        mainGain.gain.setValueAtTime(0.08, audioCtx.currentTime); // keep it safe and soft
+
+        // Ethereal Echo Delay Node
+        delayNode = audioCtx.createDelay(2.0);
+        const delayFeedback = audioCtx.createGain();
+        delayNode.delayTime.setValueAtTime(0.6, audioCtx.currentTime);
+        delayFeedback.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        
+        // Loop delay feedback
+        delayNode.connect(delayFeedback);
+        delayFeedback.connect(delayNode);
+
+        // Filter sweeps for atmospheric cosmic wind
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(400, audioCtx.currentTime);
+        filter.Q.setValueAtTime(8, audioCtx.currentTime);
+
+        // LFO to sweep atmospheric filter automatically
+        lfoOsc = audioCtx.createOscillator();
+        const lfoGain = audioCtx.createGain();
+        lfoOsc.type = 'sine';
+        lfoOsc.frequency.setValueAtTime(0.08, audioCtx.currentTime); // Very slow sweep
+        lfoGain.gain.setValueAtTime(250, audioCtx.currentTime); // Sweep range
+
+        lfoOsc.connect(lfoGain);
+        lfoGain.connect(filter.frequency);
+        lfoOsc.start();
+
+        // Connect main path
+        mainGain.connect(filter);
+        filter.connect(delayNode);
+        delayNode.connect(audioCtx.destination);
+        filter.connect(audioCtx.destination); // Direct dry signal
+
+        // Generate generative deep space ambient pad
+        // Root Notes for C Minor 9th chord (C2, G2, Bb2, D3, G3)
+        const chordFreqs = [65.41, 98.00, 116.54, 146.83, 196.00];
+        
+        chordFreqs.forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const oscGain = audioCtx.createGain();
+          
+          osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+          
+          // Subtle volume modulation per voice
+          oscGain.gain.setValueAtTime(0.15 / chordFreqs.length, audioCtx.currentTime);
+          
+          osc.connect(oscGain);
+          oscGain.connect(mainGain);
+          osc.start();
+          
+          oscillatorChordNodes.push({ osc, oscGain });
+        });
+
+        // Procedural soft stellar wind sound (noise)
+        const bufferSize = audioCtx.sampleRate * 2;
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2.0 - 1.0;
+        }
+        
+        const whiteNoise = audioCtx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+        whiteNoise.loop = true;
+        
+        const noiseFilter = audioCtx.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.setValueAtTime(300, audioCtx.currentTime);
+        noiseFilter.Q.setValueAtTime(1.5, audioCtx.currentTime);
+
+        const noiseGain = audioCtx.createGain();
+        noiseGain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+
+        whiteNoise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(audioCtx.destination);
+        whiteNoise.start();
+
+        // Update UI states
+        audioIndicator.style.backgroundColor = '#10b981'; // Green
+        audioText.textContent = 'SOUND ENGINE ACTIVE';
+        playAlertSound(600, 0.15);
+        playAlertSound(1000, 0.15);
+
+      } catch (err) {
+        console.error("Audio Context Init Failed:", err);
+      }
+    }
+
+    // Play procedural custom retro feedback sweeps on hover/click
+    function playAlertSound(freq, duration = 0.2, type = 'sine') {
+      if (!audioCtx || audioCtx.state !== 'running') return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const oscGain = audioCtx.createGain();
+        
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        
+        // Pitch Sweep
+        osc.frequency.exponentialRampToValueAtTime(freq * 1.5, audioCtx.currentTime + duration);
+        
+        oscGain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        oscGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        
+        osc.connect(oscGain);
+        oscGain.connect(audioCtx.destination);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    // Connect user clicks to synthesizer blips
+    document.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        playAlertSound(880, 0.1, 'triangle');
+      });
+      btn.addEventListener('mouseenter', () => {
+        playAlertSound(440, 0.05, 'sine');
+      });
+    });
+  </script>
+
+  <!-- Interactive Immersive Script (Three.js & GSAP Bindings) -->
+  <script>
+    // Grid telemetries
+    const driftText = document.getElementById('telemetry-drift');
+    setInterval(() => {
+      const dynamicDrift = (0.03 + Math.random() * 0.01).toFixed(4);
+      driftText.textContent = `${dynamicDrift}°/s`;
+    }, 1500);
+
+    // Initializer
+    const container = document.getElementById('canvas-container');
+    const loadingScreen = document.getElementById('loading-screen');
+    const progressBar = document.getElementById('load-progress');
+    const loadStatus = document.getElementById('load-status');
+
+    let scene, camera, renderer, clock;
+    
+    // Core Objects
+    let universeStars, planetBody, planetClouds, atmosphereGlow;
+    let asteroidGroup = [];
+    let spaceStation;
+    let blackHoleMesh, accretionDisk;
+    let spacePulseMesh; // Pulse shockwave
+
+    // Coordinates of hotspots on the Planet surface (Latitude, Longitude mapped)
+    const hotspotsData = [
+      { id: 'spot1', name: 'NEON MATRIX BASE', lat: 35, lon: -40, text: 'Gravity Anomaly Core', active: true },
+      { id: 'spot2', name: 'NORTH VORTEX REEF', lat: -15, lon: 80, text: 'Deep Core Outflow', active: true },
+      { id: 'spot3', name: 'PROMETHEUS SECTOR', lat: 60, lon: 150, text: 'Modular Mining Node', active: true }
+    ];
+    let hotspotElements = [];
+
+    // Animation control parameters (linked via GSAP and scrubbed)
+    const renderConfig = {
+      starlightColor: 0x38bdf8,
+      speedMultiplier: 1.0,
+      wireframe: false,
+      warpStrength: 0,
+    };
+
+    // Simulated loading pipeline
+    let loadVal = 0;
+    const interval = setInterval(() => {
+      loadVal += Math.floor(Math.random() * 15) + 5;
+      if (loadVal >= 100) {
+        loadVal = 100;
+        clearInterval(interval);
+        setTimeout(() => {
+          loadingScreen.style.opacity = '0';
+          setTimeout(() => {
+            loadingScreen.style.display = 'none';
+          }, 1000);
+        }, 600);
+      }
+      progressBar.style.width = `${loadVal}%`;
+      if (loadVal > 80) loadStatus.textContent = "DE-DECONSTRUCTING ATMOSPHERIC MATRICES...";
+      else if (loadVal > 50) loadStatus.textContent = "SYNCHRONIZING ORBITAL PATHS...";
+      else if (loadVal > 25) loadStatus.textContent = "BUFFERING STARFIELD GEOMETRIES...";
+    }, 100);
+
+    // Dynamic Coordinate graph visualizer inside Sidebar
+    const miniGraph = document.getElementById('mini-graph');
+    const graphCtx = miniGraph.getContext('2d');
+    let graphOffset = 0;
+    function drawGraph() {
+      if (!graphCtx) return;
+      graphCtx.clearRect(0, 0, miniGraph.width, miniGraph.height);
+      graphCtx.strokeStyle = 'rgba(6, 182, 212, 0.75)';
+      graphCtx.lineWidth = 1.5;
+      graphCtx.beginPath();
+      for (let x = 0; x < miniGraph.width; x++) {
+        const y = Math.sin((x + graphOffset) * 0.1) * Math.cos((x - graphOffset) * 0.05) * 15 + 24;
+        if (x === 0) graphCtx.moveTo(x, y);
+        else graphCtx.lineTo(x, y);
+      }
+      graphCtx.stroke();
+      graphOffset += 0.8 * renderConfig.speedMultiplier;
+      requestAnimationFrame(drawGraph);
+    }
+    // Set sizes of graph
+    miniGraph.width = 300;
+    miniGraph.height = 48;
+    drawGraph();
+
+    // Init Three.js setup
+    function init() {
+      clock = new THREE.Clock();
+      scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x030712, 0.005);
+
+      // Camera with responsive settings
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+      camera.position.set(0, 0, 16);
+
+      // WebGL Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.25;
+      container.appendChild(renderer.domElement);
+
+      // Add lights
+      const ambientLight = new THREE.AmbientLight(0x1e152f, 1.2);
+      scene.add(ambientLight);
+
+      // Distant cosmic sun/directional light
+      const sunLight = new THREE.DirectionalLight(renderConfig.starlightColor, 3.0);
+      sunLight.position.set(15, 8, 12);
+      scene.add(sunLight);
+
+      // Subtle dynamic purple side light
+      const purpleLight = new THREE.PointLight(0x8b5cf6, 2, 30);
+      purpleLight.position.set(-15, -5, -5);
+      scene.add(purpleLight);
+
+      // Create Stars
+      buildStarfield();
+
+      // Create Planet Aegis-IV
+      buildPlanet();
+
+      // Create Asteroid Belt
+      buildAsteroids();
+
+      // Create space station hub
+      buildSpaceStation();
+
+      // Create singularity / Black hole
+      buildSingularity();
+
+      // Setup hotspots projected elements
+      buildHotspotElements();
+
+      // Register event listeners
+      window.addEventListener('resize', onWindowResize);
+      document.addEventListener('mousemove', onDocumentMouseMove);
+      
+      // Init interactive GSAP triggers for smooth scroll binding
+      initGSAPAnimations();
+    }
+
+    // Build procedural planet to guarantee loaded assets instantly
+    function buildPlanet() {
+      // Setup detailed Canvas-based procedural textures
+      const textureCanvas = document.createElement('canvas');
+      textureCanvas.width = 1024;
+      textureCanvas.height = 512;
+      const ctx = textureCanvas.getContext('2d');
+
+      // Create dark blue cosmic biosphere oceans
+      ctx.fillStyle = '#050c18';
+      ctx.fillRect(0, 0, 1024, 512);
+
+      // Draw glowing landmass and cyber gridlines
+      ctx.fillStyle = '#1e3a8a';
+      // Fill random organic landshapes
+      for (let i = 0; i < 50; i++) {
+        ctx.beginPath();
+        const rx = Math.random() * 1024;
+        const ry = Math.random() * 512;
+        const rRad = Math.random() * 80 + 40;
+        ctx.arc(rx, ry, rRad, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Layer glowing cyan cybercity colony network highlights
+      ctx.fillStyle = '#06b6d4';
+      for (let i = 0; i < 200; i++) {
+        const x = Math.random() * 1024;
+        const y = Math.random() * 512;
+        ctx.fillRect(x, y, Math.random() * 3 + 1, Math.random() * 3 + 1);
+        
+        // Link with tech lines
+        if (Math.random() > 0.8) {
+          ctx.strokeStyle = 'rgba(6, 182, 212, 0.15)';
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(x + Math.random() * 100 - 50, y + Math.random() * 50 - 25);
+          ctx.stroke();
+        }
+      }
+
+      // Generate texture from procedural canvas
+      const planetTex = new THREE.CanvasTexture(textureCanvas);
+      planetTex.wrapS = THREE.RepeatWrapping;
+      planetTex.wrapT = THREE.ClampToEdgeWrapping;
+
+      // Base Planet Mesh
+      const geometry = new THREE.SphereGeometry(4.5, 64, 64);
+      const material = new THREE.MeshStandardMaterial({
+        map: planetTex,
+        roughness: 0.65,
+        metalness: 0.45,
+        emissive: 0x06b6d4,
+        emissiveIntensity: 0.15,
+      });
+      planetBody = new THREE.Mesh(geometry, material);
+      planetBody.position.set(0, 0, 0);
+      scene.add(planetBody);
+
+      // Shifting atmospheric cloud layers
+      const cloudCanvas = document.createElement('canvas');
+      cloudCanvas.width = 512;
+      cloudCanvas.height = 256;
+      const cloudCtx = cloudCanvas.getContext('2d');
+      cloudCtx.clearRect(0, 0, 512, 256);
+      
+      // Paint soft transparent cloud trails
+      cloudCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      for (let i = 0; i < 20; i++) {
+        cloudCtx.beginPath();
+        cloudCtx.ellipse(
+          Math.random() * 512, 
+          Math.random() * 256, 
+          Math.random() * 120 + 30, 
+          Math.random() * 20 + 5, 
+          Math.random() * Math.PI, 
+          0, 
+          Math.PI * 2
+        );
+        cloudCtx.fill();
+      }
+
+      const cloudTex = new THREE.CanvasTexture(cloudCanvas);
+      const cloudGeom = new THREE.SphereGeometry(4.58, 64, 64);
+      const cloudMat = new THREE.MeshBasicMaterial({
+        map: cloudTex,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending
+      });
+      planetClouds = new THREE.Mesh(cloudGeom, cloudMat);
+      scene.add(planetClouds);
+
+      // Atmospheric outer glow
+      const glowGeom = new THREE.SphereGeometry(4.9, 32, 32);
+      const glowMat = new THREE.MeshBasicMaterial({
+        color: 0x06b6d4,
+        transparent: true,
+        opacity: 0.12,
+        blending: THREE.AdditiveBlending,
+        side: THREE.BackSide
+      });
+      atmosphereGlow = new THREE.Mesh(glowGeom, glowMat);
+      scene.add(atmosphereGlow);
+
+      // Shockwave Pulse Mesh (initially hidden/shrunk)
+      const pulseGeom = new THREE.SphereGeometry(4.6, 64, 64);
+      const pulseMat = new THREE.MeshBasicMaterial({
+        color: 0xef4444,
+        wireframe: true,
+        transparent: true,
+        opacity: 0.0,
+        blending: THREE.AdditiveBlending
+      });
+      spacePulseMesh = new THREE.Mesh(pulseGeom, pulseMat);
+      scene.add(spacePulseMesh);
+    }
+
+    // Interactive hotspot projecting positions from 3D to 2D
+    function buildHotspotElements() {
+      const containerEl = document.getElementById('hotspots-container');
+      containerEl.innerHTML = ''; // clear
+      hotspotElements = [];
+
+      hotspotsData.forEach((spot, idx) => {
+        // Create actual DOM elements to overlay nicely with custom styles
+        const spotDiv = document.createElement('div');
+        spotDiv.className = 'absolute pointer-events-auto transform -translate-x-1/2 -translate-y-1/2 transition-opacity duration-300';
+        spotDiv.style.opacity = '0';
+        spotDiv.innerHTML = `
+          <div class="relative group select-none cursor-pointer" onclick="zoomToHotspot(${idx})">
+            <!-- Pulsing outer circle -->
+            <div class="absolute inset-0 w-8 h-8 -left-4 -top-4 rounded-full border-2 border-cosmic-neon/60 animate-ping"></div>
+            <!-- Inner node dot -->
+            <div class="w-4 h-4 rounded-full bg-cosmic-neon border-2 border-white flex items-center justify-center shadow-lg shadow-cosmic-neon/50">
+              <span class="text-[8px] font-bold text-cosmic-black">${idx + 1}</span>
+            </div>
+            <!-- Information tooltip on hover -->
+            <div class="absolute left-6 top-1/2 -translate-y-1/2 bg-cosmic-blue/90 backdrop-blur-md border border-cosmic-neon/30 p-2.5 rounded-md min-w-48 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+              <div class="font-display text-xs font-bold text-cosmic-neon tracking-wide">${spot.name}</div>
+              <div class="font-mono text-[9px] text-slate-300 mt-0.5">${spot.text}</div>
+              <div class="font-mono text-[8px] text-slate-500 mt-1 uppercase">CLICK AREA TO FOCUS SECTOR</div>
+            </div>
+          </div>
+        `;
+
+        containerEl.appendChild(spotDiv);
+
+        // Convert spherical coords to 3D positions
+        const radLat = THREE.MathUtils.degToRad(spot.lat);
+        const radLon = THREE.MathUtils.degToRad(spot.lon);
+        const radius = 4.54; // Slightly outside surface
+
+        const position3D = new THREE.Vector3(
+          radius * Math.cos(radLat) * Math.sin(radLon),
+          radius * Math.sin(radLat),
+          radius * Math.cos(radLat) * Math.cos(radLon)
+        );
+
+        hotspotElements.push({
+          element: spotDiv,
+          pos3D: position3D,
+          data: spot
+        });
+      });
+    }
+
+    // Convert lat-lon positions to screen coordinate pixels
+    function updateHotspotsPosition() {
+      const tempV = new THREE.Vector3();
+      hotspotElements.forEach(item => {
+        // Track planet global rotations
+        tempV.copy(item.pos3D);
+        tempV.applyMatrix4(planetBody.matrixWorld);
+
+        // Don't show hotspots behind the planet sphere
+        const cameraToSpot = tempV.clone().sub(camera.position);
+        const cameraToCenter = planetBody.position.clone().sub(camera.position);
+        
+        // Project to screen space
+        tempV.project(camera);
+
+        const onScreen = (tempV.z < 1.0) && (cameraToSpot.length() < cameraToCenter.length());
+
+        if (onScreen) {
+          const x = (tempV.x * .5 + .5) * window.innerWidth;
+          const y = (tempV.y * -.5 + .5) * window.innerHeight;
+          item.element.style.left = `${x}px`;
+          item.element.style.top = `${y}px`;
+          item.element.style.opacity = '1';
+        } else {
+          item.element.style.opacity = '0';
+        }
+      });
+    }
+
+    // Click hotspot to trigger custom flight camera view transitions
+    let activePivoting = false;
+    function zoomToHotspot(idx) {
+      if (activePivoting) return;
+      activePivoting = true;
+
+      // Extract coordinates
+      const spot = hotspotElements[idx];
+      const targetPos = spot.pos3D.clone();
+      targetPos.applyMatrix4(planetBody.matrixWorld);
+
+      // Compute camera offset point just above hotspot surface
+      const distanceVec = targetPos.clone().sub(planetBody.position).normalize().multiplyScalar(9.0);
+      const camTarget = planetBody.position.clone().add(distanceVec);
+
+      // Play sweep audio cues
+      playAlertSound(700, 0.4, 'sawtooth');
+
+      // GSAP animate camera position to pivot view
+      gsap.to(camera.position, {
+        x: camTarget.x,
+        y: camTarget.y,
+        z: camTarget.z,
+        duration: 1.5,
+        ease: 'power2.out',
+        onUpdate: () => {
+          camera.lookAt(planetBody.position);
+        },
+        onComplete: () => {
+          activePivoting = false;
+        }
+      });
+    }
+
+    // Generate stunning Starfield particle system
+    function buildStarfield() {
+      const count = 5000;
+      const geom = new THREE.BufferGeometry();
+      const positions = new Float32Array(count * 3);
+      const colors = new Float32Array(count * 3);
+      const sizes = new Float32Array(count);
+
+      const colorMap = {
+        cyan: new THREE.Color(0x06b6d4),
+        purple: new THREE.Color(0x8b5cf6),
+        white: new THREE.Color(0xffffff)
+      };
+
+      for (let i = 0; i < count; i++) {
+        // Distribute within massive spherical bubble
+        const u = Math.random();
+        const v = Math.random();
+        const theta = u * 2.0 * Math.PI;
+        const phi = Math.acos(2.0 * v - 1.0);
+        const r = Math.random() * 400 + 50;
+
+        positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+        positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+        positions[i * 3 + 2] = r * Math.cos(phi);
+
+        // Variable sizes
+        sizes[i] = Math.random() * 2.5 + 0.5;
+
+        // Soft gradient colors
+        const pick = Math.random();
+        let starColor;
+        if (pick < 0.6) starColor = colorMap.white;
+        else if (pick < 0.85) starColor = colorMap.cyan;
+        else starColor = colorMap.purple;
+
+        colors[i * 3] = starColor.r;
+        colors[i * 3 + 1] = starColor.g;
+        colors[i * 3 + 2] = starColor.b;
+      }
+
+      geom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geom.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      // Generate round star particle material
+      const canvas = document.createElement('canvas');
+      canvas.width = 16;
+      canvas.height = 16;
+      const ctx = canvas.getContext('2d');
+      const grad = ctx.createRadialGradient(8, 8, 0, 8, 8, 8);
+      grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+      grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 16, 16);
+
+      const particleTexture = new THREE.CanvasTexture(canvas);
+
+      const mat = new THREE.PointsMaterial({
+        size: 1.5,
+        map: particleTexture,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      universeStars = new THREE.Points(geom, mat);
+      scene.add(universeStars);
+    }
+
+    // Build procedural 3D Orbiting Asteroids
+    function buildAsteroids() {
+      const beltRadius = 15;
+      const beltWidth = 4.5;
+      const numAsteroids = 220;
+
+      const asteroidGeom = new THREE.DodecahedronGeometry(1, 1);
+
+      for (let i = 0; i < numAsteroids; i++) {
+        // Procedurally deform standard shape for natural look
+        const clonedGeom = asteroidGeom.clone();
+        const posAttr = clonedGeom.attributes.position;
+        for (let j = 0; j < posAttr.count; j++) {
+          const x = posAttr.getX(j);
+          const y = posAttr.getY(j);
+          const z = posAttr.getZ(j);
+          // Apply noise deforms
+          posAttr.setXYZ(j, 
+            x + (Math.random() - 0.5) * 0.35,
+            y + (Math.random() - 0.5) * 0.35,
+            z + (Math.random() - 0.5) * 0.35
+          );
+        }
+        clonedGeom.computeVertexNormals();
+
+        const asteroidMat = new THREE.MeshStandardMaterial({
+          color: 0x3d414e,
+          roughness: 0.9,
+          metalness: 0.1
+        });
+
+        const mesh = new THREE.Mesh(clonedGeom, asteroidMat);
+        
+        // Position within torus ring
+        const angle = Math.random() * Math.PI * 2;
+        const radius = beltRadius + (Math.random() - 0.5) * beltWidth;
+        const height = (Math.random() - 0.5) * 2.0;
+
+        mesh.position.set(
+          Math.cos(angle) * radius,
+          height,
+          Math.sin(angle) * radius
+        );
+
+        // Random rotation and sizes
+        mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+        const sc = Math.random() * 0.35 + 0.15;
+        mesh.scale.set(sc, sc, sc);
+
+        scene.add(mesh);
+
+        // Cache speed parameters for dynamic loop rendering
+        asteroidGroup.push({
+          mesh: mesh,
+          angle: angle,
+          orbitSpeed: (Math.random() * 0.01 + 0.005) * 0.5,
+          rotSpeedX: (Math.random() - 0.5) * 0.02,
+          rotSpeedY: (Math.random() - 0.5) * 0.02,
+          radius: radius
+        });
+      }
+    }
+
+    // Build majestic modular deep space station
+    function buildSpaceStation() {
+      spaceStation = new THREE.Group();
+
+      const matMetal = new THREE.MeshStandardMaterial({ color: 0x737373, roughness: 0.3, metalness: 0.9 });
+      const matDark = new THREE.MeshStandardMaterial({ color: 0x1f1f1f, roughness: 0.6, metalness: 0.8 });
+      const matEmissive = new THREE.MeshBasicMaterial({ color: 0x06b6d4 });
+
+      // Core axial shaft cylinder
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 12, 16), matMetal);
+      shaft.rotation.z = Math.PI / 2;
+      spaceStation.add(shaft);
+
+      // Central Command Sphere
+      const centerCore = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 16), matMetal);
+      spaceStation.add(centerCore);
+
+      // Large outer rotating rings (Torus structure)
+      const ringGeom = new THREE.TorusGeometry(3.5, 0.12, 8, 48);
+      const outerRing1 = new THREE.Mesh(ringGeom, matDark);
+      outerRing1.rotation.y = Math.PI / 2;
+      spaceStation.add(outerRing1);
+
+      const outerRing2 = new THREE.Mesh(new THREE.TorusGeometry(3.1, 0.08, 8, 48), matMetal);
+      outerRing2.rotation.y = Math.PI / 2;
+      spaceStation.add(outerRing2);
+
+      // Solar panel wings (connected flat box nodes)
+      const panelGeom = new THREE.BoxGeometry(0.05, 1.8, 4.5);
+      const matSolar = new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.1, metalness: 0.9, emissive: 0x1d4ed8, emissiveIntensity: 0.4 });
+      
+      const wing1 = new THREE.Mesh(panelGeom, matSolar);
+      wing1.position.set(4, 0, 0);
+      spaceStation.add(wing1);
+
+      const wing2 = new THREE.Mesh(panelGeom, matSolar);
+      wing2.position.set(-4, 0, 0);
+      spaceStation.add(wing2);
+
+      // Emissive navigation lights dots
+      for (let i = 0; i < 8; i++) {
+        const marker = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), matEmissive);
+        const angle = (i / 8) * Math.PI * 2;
+        marker.position.set(0, Math.cos(angle) * 3.5, Math.sin(angle) * 3.5);
+        spaceStation.add(marker);
+      }
+
+      // Reposition downstream for Section 3 focus
+      spaceStation.position.set(-8, -25, -20);
+      spaceStation.rotation.set(0.4, 0.8, -0.3);
+      scene.add(spaceStation);
+    }
+
+    // Build Singularity/Black Hole with complex accretion disk mesh
+    function buildSingularity() {
+      // Create pitch black event horizon sphere
+      const shadowHole = new THREE.Mesh(
+        new THREE.SphereGeometry(3.2, 32, 32),
+        new THREE.MeshBasicMaterial({ color: 0x000000 })
+      );
+
+      // Glowing gaseous accretion disk (Using Flat Ring)
+      const diskCanvas = document.createElement('canvas');
+      diskCanvas.width = 512;
+      diskCanvas.height = 512;
+      const diskCtx = diskCanvas.getContext('2d');
+      
+      // Draw spiral radial glowing disk rings
+      const diskGrad = diskCtx.createRadialGradient(256, 256, 40, 256, 256, 250);
+      diskGrad.addColorStop(0, 'rgba(0,0,0, 1)');
+      diskGrad.addColorStop(0.1, 'rgba(245, 158, 11, 1)'); // Amber hot
+      diskGrad.addColorStop(0.4, 'rgba(139, 92, 246, 0.7)'); // Purple cool
+      diskGrad.addColorStop(0.8, 'rgba(6, 182, 212, 0.2)'); // Cyan faint
+      diskGrad.addColorStop(1, 'rgba(0,0,0, 0)');
+      
+      diskCtx.fillStyle = diskGrad;
+      diskCtx.fillRect(0,0,512,512);
+
+      const diskTex = new THREE.CanvasTexture(diskCanvas);
+      const diskGeom = new THREE.RingGeometry(3.1, 14, 64);
+      const diskMat = new THREE.MeshBasicMaterial({
+        map: diskTex,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.95,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+
+      accretionDisk = new THREE.Mesh(diskGeom, diskMat);
+      accretionDisk.rotation.x = Math.PI / 2.3; // tilted event plane
+
+      blackHoleMesh = new THREE.Group();
+      blackHoleMesh.add(shadowHole);
+      blackHoleMesh.add(accretionDisk);
+
+      // Downstream deep vector position (Section 4)
+      blackHoleMesh.position.set(10, -55, -45);
+      scene.add(blackHoleMesh);
+    }
+
+    // Track scroll interactions smoothly linked using GSAP
+    function initGSAPAnimations() {
+      gsap.registerPlugin(ScrollTrigger);
+
+      // Core camera positions / target flight paths
+      // S0: Hero: (0,0,16) -> S1: Planet Focus -> S2: Asteroid Core -> S3: Station Zoom -> S4: Black Hole Event Horizon
+      const timeline = gsap.timeline({
+        scrollTrigger: {
+          trigger: "#scroll-container",
+          start: "top top",
+          end: "bottom bottom",
+          scrub: 1.2, // Smooth interpolation lag
+        }
+      });
+
+      // Bind scroll stage coordinates
+      timeline
+        // Step 1: Descend closer towards Aegis-IV Planet
+        .to(camera.position, { x: -3.5, y: -2.0, z: 9.5 })
+        .to(planetBody.position, { x: 3.5, y: -0.5, z: -1.0 }, "<")
+        .to(planetClouds.position, { x: 3.5, y: -0.5, z: -1.0 }, "<")
+        .to(atmosphereGlow.position, { x: 3.5, y: -0.5, z: -1.0 }, "<")
+        .to(spacePulseMesh.position, { x: 3.5, y: -0.5, z: -1.0 }, "<")
+
+        // Step 2: Plunge deeply into high threat Asteroid Belt Canyon
+        .to(camera.position, { x: 6.0, y: -9.5, z: 12.0 })
+        .to(camera.rotation, { x: -0.3, y: 0.2 }, "<")
+        
+        // Step 3: Descend and track modular docking terminal base
+        .to(camera.position, { x: -5.0, y: -23.5, z: -10.0 })
+        .to(spaceStation.rotation, { y: Math.PI * 1.5, z: 0.4 }, "<")
+        
+        // Step 4: Fall into gravitational event singularity
+        .to(camera.position, { x: 7.0, y: -54.0, z: -32.0 })
+        .to(blackHoleMesh.rotation, { y: 1.2 }, "<");
+    }
+
+    // Trigger glowing electromagnetic defensive shockwave shield
+    const pulseBtn = document.getElementById('btn-pulse');
+    const pulseDurationText = document.getElementById('pulse-duration-val');
+    let isPulsing = false;
+
+    pulseBtn.addEventListener('click', () => {
+      if (isPulsing) return;
+      isPulsing = true;
+
+      // Play cyber sound trigger
+      playAlertSound(150, 1.2, 'sawtooth');
+      playAlertSound(300, 1.2, 'sine');
+
+      // Expand & fade 3D shockwave in ThreeJS scene
+      spacePulseMesh.scale.set(1.0, 1.0, 1.0);
+      spacePulseMesh.material.opacity = 0.8;
+
+      gsap.to(spacePulseMesh.scale, {
+        x: 2.8,
+        y: 2.8,
+        z: 2.8,
+        duration: 2.5,
+        ease: 'power1.out'
+      });
+
+      gsap.to(spacePulseMesh.material, {
+        opacity: 0,
+        duration: 2.5,
+        ease: 'power1.out',
+        onComplete: () => {
+          isPulsing = false;
+        }
+      });
+
+      // Animate telemetry readout
+      let count = 3.50;
+      const countInterval = setInterval(() => {
+        count -= 0.12;
+        if (count <= 0) {
+          count = 0;
+          clearInterval(countInterval);
+          pulseDurationText.textContent = "READY";
+        } else {
+          pulseDurationText.textContent = `${count.toFixed(2)} SEC`;
+        }
+      }, 120);
+    });
+
+    // Animate docking terminal array alignment parameters
+    const stationBtn = document.getElementById('btn-station');
+    stationBtn.addEventListener('click', () => {
+      // Play hydraulic mechanical sweep sounds
+      playAlertSound(200, 1.5, 'triangle');
+      playAlertSound(250, 1.5, 'triangle');
+
+      // Spin arrays aggressively
+      gsap.to(spaceStation.rotation, {
+        x: spaceStation.rotation.x + Math.PI,
+        y: spaceStation.rotation.y + Math.PI * 2,
+        duration: 3.5,
+        ease: 'power3.inOut'
+      });
+    });
+
+    // Engage cosmic hyperspace warp jump conduit
+    const warpBtn = document.getElementById('btn-warp');
+    let isWarping = false;
+    warpBtn.addEventListener('click', () => {
+      if (isWarping) return;
+      isWarping = true;
+
+      playAlertSound(120, 2.5, 'sawtooth');
+      playAlertSound(200, 2.5, 'sine');
+
+      warpBtn.textContent = "SYSTEM WARP INITIATED";
+      warpBtn.style.boxShadow = "0 0 35px #8b5cf6";
+
+      // Animate 3D coordinates & speed up render variables
+      gsap.to(renderConfig, {
+        warpStrength: 25.0,
+        speedMultiplier: 10.0,
+        duration: 2.5,
+        ease: 'power3.in',
+        onComplete: () => {
+          // Reset warp tunnel effect
+          gsap.to(renderConfig, {
+            warpStrength: 0,
+            speedMultiplier: 1.0,
+            duration: 1.5,
+            ease: 'power2.out',
+            onComplete: () => {
+              isWarping = false;
+              warpBtn.textContent = "ENGAGE WARP CONDUIT";
+              warpBtn.style.boxShadow = "";
+            }
+          });
+        }
+      });
+    });
+
+    // Control sidebar collapsible state
+    const dashboardToggle = document.getElementById('dashboard-toggle');
+    const dashboardPanel = document.getElementById('system-dashboard');
+    let dashboardOpen = false;
+
+    dashboardToggle.addEventListener('click', () => {
+      dashboardOpen = !dashboardOpen;
+      if (dashboardOpen) {
+        dashboardPanel.style.transform = 'translateX(0)';
+        dashboardToggle.textContent = 'CLOSE';
+        dashboardToggle.classList.add('bg-cosmic-neon/30', 'border-cosmic-neon');
+      } else {
+        dashboardPanel.style.transform = 'translateX(100%)';
+        dashboardToggle.textContent = 'DASHBOARD';
+        dashboardToggle.classList.remove('bg-cosmic-neon/30', 'border-cosmic-neon');
+      }
+    });
+
+    // Controls Configuration
+    const wireframeBtn = document.getElementById('wireframe-btn');
+    const wireframeKnob = document.getElementById('wireframe-knob');
+    wireframeBtn.addEventListener('click', () => {
+      renderConfig.wireframe = !renderConfig.wireframe;
+      if (renderConfig.wireframe) {
+        wireframeKnob.style.transform = 'translateX(20px)';
+        wireframeKnob.classList.replace('bg-slate-500', 'bg-cosmic-neon');
+        // Toggle 3D mesh wireframe properties
+        planetBody.material.wireframe = true;
+        spaceStation.traverse(child => {
+          if (child.isMesh) child.material.wireframe = true;
+        });
+      } else {
+        wireframeKnob.style.transform = 'translateX(0)';
+        wireframeKnob.classList.replace('bg-cosmic-neon', 'bg-slate-500');
+        planetBody.material.wireframe = false;
+        spaceStation.traverse(child => {
+          if (child.isMesh) child.material.wireframe = false;
+        });
+      }
+    });
+
+    const speedSlider = document.getElementById('speed-slider');
+    const speedValText = document.getElementById('speed-val');
+    speedSlider.addEventListener('input', (e) => {
+      renderConfig.speedMultiplier = parseFloat(e.target.value);
+      speedValText.textContent = `${renderConfig.speedMultiplier}x`;
+    });
+
+    const starlightSlider = document.getElementById('starlight-slider');
+    const starlightValText = document.getElementById('starlight-val');
+    starlightSlider.addEventListener('input', (e) => {
+      const colors = [0x38bdf8, 0x8b5cf6, 0xf59e0b];
+      const names = ["CYAN", "PURPLE", "AMBER"];
+      const selectedIdx = parseInt(e.target.value) - 1;
+      
+      renderConfig.starlightColor = colors[selectedIdx];
+      starlightValText.textContent = names[selectedIdx];
+      
+      // Update lights colors dynamically
+      scene.traverse(child => {
+        if (child.isDirectionalLight) {
+          child.color.setHex(renderConfig.starlightColor);
+        }
+      });
+    });
+
+    // Custom Cosmic reticle mouse movement tracking
+    const crosshair = document.getElementById('crosshair');
+    let mouseX = 0, mouseY = 0;
+    let targetX = 0, targetY = 0;
+
+    function onDocumentMouseMove(event) {
+      mouseX = event.clientX;
+      mouseY = event.clientY;
+      
+      // Subtle interactive parallax camera lookAt tilt offset
+      targetX = (event.clientX - window.innerWidth / 2) * 0.0003;
+      targetY = (event.clientY - window.innerHeight / 2) * 0.0003;
+      
+      crosshair.style.opacity = '1';
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      buildHotspotElements(); // reconstruct position vectors dynamically
+    }
+
+    // Threat alert trigger on scroll boundaries
+    const alarmToast = document.getElementById('alarm-toast');
+    let toastTriggered = false;
+
+    // Standard Render Animation Loop
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = clock.getDelta();
+      const time = clock.getElapsedTime();
+
+      // Rotational speeds adjusted with slider speed parameters
+      const runSpeed = delta * renderConfig.speedMultiplier;
+
+      // Slowly rotate Planet Aegis-IV and clouds at separate relative speeds
+      if (planetBody) {
+        planetBody.rotation.y += runSpeed * 0.025;
+        planetClouds.rotation.y += runSpeed * 0.035;
+        planetClouds.rotation.x += runSpeed * 0.005;
+      }
+
+      // Rotate Starfield slowly
+      if (universeStars) {
+        universeStars.rotation.y += runSpeed * 0.002;
+        universeStars.rotation.x += runSpeed * 0.001;
+
+        // Apply interactive hyperspace particle stretching (warp drive)
+        const posAttr = universeStars.geometry.attributes.position;
+        if (renderConfig.warpStrength > 0) {
+          for (let i = 0; i < posAttr.count; i++) {
+            let zVal = posAttr.getZ(i);
+            // Translate star coords closer on Z axis to simulate deep flight warp drive
+            zVal += renderConfig.warpStrength;
+            if (zVal > 250) zVal = -250; // Wrap coordinates
+            posAttr.setZ(i, zVal);
+          }
+          posAttr.needsUpdate = true;
+        }
+      }
+
+      // Orbit Asteroid systems
+      asteroidGroup.forEach(asteroid => {
+        asteroid.angle += asteroid.orbitSpeed * renderConfig.speedMultiplier;
+        asteroid.mesh.position.x = Math.cos(asteroid.angle) * asteroid.radius;
+        asteroid.mesh.position.z = Math.sin(asteroid.angle) * asteroid.radius;
+        
+        asteroid.mesh.rotation.x += asteroid.rotSpeedX;
+        asteroid.mesh.rotation.y += asteroid.rotSpeedY;
+      });
+
+      // Rotate space station
+      if (spaceStation) {
+        spaceStation.rotation.y += runSpeed * 0.1;
+      }
+
+      // Spin gravitational accretion disk
+      if (accretionDisk) {
+        accretionDisk.rotation.z -= runSpeed * 0.4;
+      }
+
+      // Apply subtle mouse hover camera tilt physics (smoothly interpolated)
+      if (!activePivoting) {
+        camera.position.x += (targetX - camera.position.x * 0.05) * 0.1;
+        camera.position.y += (-targetY - camera.position.y * 0.05) * 0.1;
+      }
+
+      // Project hotspots screen positions smoothly
+      updateHotspotsPosition();
+
+      // Track Reticle positions
+      crosshair.style.transform = `translate3d(${mouseX}px, ${mouseY}px, 0px) translate(-50%, -50%)`;
+
+      // Anomaly threat warnings logic triggered near specific Asteroid segment boundary scroll height (40% - 60%)
+      const scrollProgress = window.scrollY / (document.documentElement.scrollHeight - window.innerHeight);
+      if (scrollProgress > 0.35 && scrollProgress < 0.60) {
+        if (!toastTriggered) {
+          toastTriggered = true;
+          alarmToast.style.transform = 'translateY(0)';
+          alarmToast.style.opacity = '1';
+          // Trigger audio warning blip alarm if sound engine enabled
+          playAlertSound(220, 0.5, 'sawtooth');
+          setTimeout(() => { playAlertSound(180, 0.5, 'sawtooth'); }, 300);
+        }
+      } else {
+        if (toastTriggered) {
+          toastTriggered = false;
+          alarmToast.style.transform = 'translateY(24px)';
+          alarmToast.style.opacity = '0';
+        }
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // Scroll to descend CTA interaction
+    document.getElementById('btn-begin').addEventListener('click', () => {
+      window.scrollTo({
+        top: window.innerHeight,
+        behavior: 'smooth'
+      });
+    });
+
+    // Start App on fully parsed load state
+    window.onload = function() {
+      init();
+      animate();
+    };
+  </script>
+</body>
+</html>
+
+```
